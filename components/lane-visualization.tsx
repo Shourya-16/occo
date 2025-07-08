@@ -1,16 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Car, MapPin } from "lucide-react"
-
-interface LaneData {
-  id: string
-  name: string
-  vehicles: VehiclePosition[]
-  status: "active" | "maintenance" | "blocked"
-}
 
 interface VehiclePosition {
   id: string
@@ -19,46 +12,25 @@ interface VehiclePosition {
   speed: number
 }
 
-const mockLaneData: LaneData[] = [
-  {
-    id: "L1",
-    name: "Lane 1",
-    vehicles: [
-      { id: "V001", checkpoint: 3, category: "A", speed: 45 },
-      { id: "V002", checkpoint: 7, category: "B", speed: 52 },
-      { id: "V003", checkpoint: 9, category: "A", speed: 38 },
-    ],
-    status: "active",
-  },
-  {
-    id: "L2",
-    name: "Lane 2",
-    vehicles: [
-      { id: "V004", checkpoint: 2, category: "B", speed: 48 },
-      { id: "V005", checkpoint: 5, category: "A", speed: 41 },
-    ],
-    status: "active",
-  },
-  {
-    id: "L3",
-    name: "Lane 3",
-    vehicles: [
-      { id: "V006", checkpoint: 1, category: "B", speed: 55 },
-      { id: "V007", checkpoint: 4, category: "A", speed: 39 },
-      { id: "V008", checkpoint: 8, category: "B", speed: 51 },
-    ],
-    status: "active",
-  },
-  {
-    id: "L4",
-    name: "Lane 4",
-    vehicles: [{ id: "V009", checkpoint: 6, category: "A", speed: 42 }],
-    status: "maintenance",
-  },
-]
+interface LaneData {
+  id: string
+  name: string
+  vehicles: VehiclePosition[]
+  status: "active" | "maintenance" | "blocked"
+}
 
 export default function LaneVisualization() {
+  const [laneData, setLaneData] = useState<LaneData[]>([])
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch("/api/lane-overview")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.lanes) setLaneData(data.lanes)
+      })
+      .catch((err) => console.error("Lane fetch error:", err))
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -88,7 +60,7 @@ export default function LaneVisualization() {
 
   return (
     <div className="space-y-4">
-      {mockLaneData.map((lane) => (
+      {laneData.map((lane) => (
         <Card key={lane.id} className={`border-2 ${getStatusColor(lane.status)}`}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
@@ -102,13 +74,9 @@ export default function LaneVisualization() {
               </span>
             </div>
 
-            {/* Lane visualization */}
             <div className="relative">
-              {/* Lane track */}
               <div className="h-12 bg-gray-200 rounded-lg relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-gray-300 via-gray-200 to-gray-300 opacity-50" />
-
-                {/* Checkpoints */}
                 {Array.from({ length: 10 }, (_, i) => (
                   <div
                     key={i}
@@ -120,8 +88,6 @@ export default function LaneVisualization() {
                     </div>
                   </div>
                 ))}
-
-                {/* Vehicles */}
                 {lane.vehicles.map((vehicle) => (
                   <div
                     key={vehicle.id}
@@ -146,8 +112,6 @@ export default function LaneVisualization() {
                   </div>
                 ))}
               </div>
-
-              {/* Legend */}
               <div className="flex items-center gap-4 mt-2 text-xs text-gray-600">
                 <div className="flex items-center gap-1">
                   <div className="w-3 h-2 bg-blue-500 rounded-sm" />
@@ -161,12 +125,11 @@ export default function LaneVisualization() {
               </div>
             </div>
 
-            {/* Vehicle details */}
             {lane.vehicles.length > 0 && (
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {lane.vehicles.map((vehicle) => (
                   <div
-                    key={vehicle.id}
+                    key={`${lane.id}-${vehicle.id}`}
                     className={`p-2 rounded border text-sm ${
                       selectedVehicle === vehicle.id ? "bg-blue-50 border-blue-300" : "bg-gray-50 border-gray-200"
                     }`}
