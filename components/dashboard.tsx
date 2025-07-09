@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import VehicleSimulator from "./vehicle-simulator"
 import TrafficCharts from "./traffic-charts"
 import LiveTracker from "./live-tracker"
 import LaneVisualization from "./lane-visualization"
@@ -12,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import DatabaseTester from "./database-tester"
 import DatabaseDebug from "./database-debug"
 import ExcelUploader from "./excel-uploader"
+import FilterLogs from "./filter-logs" // ✅ NEW import
 
 export default function Dashboard() {
   const [lastUpdate, setLastUpdate] = useState(new Date())
@@ -19,7 +19,6 @@ export default function Dashboard() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
-    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1000))
     setLastUpdate(new Date())
     setIsRefreshing(false)
@@ -40,7 +39,7 @@ export default function Dashboard() {
           <TabsTrigger value="upload">Upload Data</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="simulator">Simulator</TabsTrigger>
+          <TabsTrigger value="filter">Filter Logs</TabsTrigger> {/* ✅ Renamed */}
           <TabsTrigger value="live">Live Tracking</TabsTrigger>
           <TabsTrigger value="test">Database Test</TabsTrigger>
           <TabsTrigger value="debug">Debug</TabsTrigger>
@@ -76,8 +75,8 @@ export default function Dashboard() {
           <TrafficCharts />
         </TabsContent>
 
-        <TabsContent value="simulator" className="space-y-6">
-          <VehicleSimulator />
+        <TabsContent value="filter" className="space-y-6">
+          <FilterLogs /> {/* ✅ NEW tab content */}
         </TabsContent>
 
         <TabsContent value="live" className="space-y-6">
