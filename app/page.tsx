@@ -16,7 +16,6 @@ export default function Home() {
   const [isConnected, setIsConnected] = useState(false)
   const [isPreview, setIsPreview] = useState(true)
 
-  // Fetch real-time stats from database
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -39,8 +38,7 @@ export default function Home() {
     }
 
     fetchStats()
-    const interval = setInterval(fetchStats, 5000) // Update every 5 seconds
-
+    const interval = setInterval(fetchStats, 5000)
     return () => clearInterval(interval)
   }, [])
 
@@ -49,13 +47,15 @@ export default function Home() {
       <div className="container mx-auto p-6">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">RFID Vehicle Tracking System</h1>
-          <p className="text-gray-600 flex items-center gap-2">
-            Real-time monitoring and analytics for vehicle movement across lanes and checkpoints
+          <div className="text-gray-600 flex items-center gap-2">
+            <span>
+              Real-time monitoring and analytics for vehicle movement across lanes and checkpoints
+            </span>
             <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`} />
             <span className="text-sm">
               {isPreview ? "Preview Mode (Mock Data)" : isConnected ? "Connected to Database" : "Database Disconnected"}
             </span>
-          </p>
+          </div>
         </div>
 
         {isPreview && (

@@ -28,8 +28,8 @@ export async function GET() {
         c.lane,
         l.timestamp
       FROM logs l
-      JOIN (
-        SELECT rfid, MAX(timestamp) AS max_time
+      INNER JOIN (
+        SELECT rfid, MAX(timestamp) as max_time
         FROM logs
         GROUP BY rfid
       ) latest ON l.rfid = latest.rfid AND l.timestamp = latest.max_time

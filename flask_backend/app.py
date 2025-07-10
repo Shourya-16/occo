@@ -91,11 +91,13 @@ def upload_excel():
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 # ---------- Analytics Routes ----------
+
+# ✅ Pie chart using unique vehicles per lane from dummy_logs
 @app.route("/analytics/pie", methods=["GET"])
 def pie_data():
     conn = connect_db()
     query = """
-        SELECT c.lane, COUNT(*) AS vehicle_count
+        SELECT c.lane, COUNT(DISTINCT d.rfid) AS vehicle_count
         FROM dummy_logs d
         JOIN checkpoints c ON d.cpid = c.cpid
         GROUP BY c.lane
@@ -104,6 +106,7 @@ def pie_data():
     conn.close()
     return df.to_dict(orient="records")
 
+# ✅ Bar chart from full logs, counting unique vehicles per checkpoint
 @app.route("/analytics/bar/<lane>", methods=["GET"])
 def bar_data(lane):
     conn = connect_db()
@@ -119,6 +122,7 @@ def bar_data(lane):
     conn.close()
     return df.to_dict(orient="records")
 
+# ✅ Category (Type A/B) distribution from vehicle_details
 @app.route("/analytics/type", methods=["GET"])
 def type_distribution():
     conn = connect_db()

@@ -1,6 +1,4 @@
-// File: /app/api/analytics/route.ts
-
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import mysql from "mysql2/promise"
 
 const dbConfig = {
@@ -10,86 +8,72 @@ const dbConfig = {
   database: "occo_db",
 }
 
-async function createConnection() {
-  const connection = await mysql.createConnection(dbConfig)
-  return connection
-}
-
-export async function GET(request: NextRequest) {
+export async function GET() {
   let connection
-  try {
-    connection = await createConnection()
 
-    // Vehicle count per lane
-    const [laneData] = await connection.execute(`
-      SELECT c.lane, COUNT(DISTINCT l.rfid) AS vehicle_count
-      FROM logs l
+  try {
+    connection = await mysql.createConnection(dbConfig)
+
+    // ✅ Latest position of each vehicle
+    const [vehicles] = await connection.execute(`
+      SELECT 
+        vd.rfid,
+        vd.BA_NO,
+        vd.Type_of_Veh,
+        vd.Unit,
+        vd.Formation,
+        vd.Lane,
+        vd.No_of_Trps,
+        vd.Purpose,
+        l.cpid,
+        l.timestamp,
+        c.lane
+      FROM Vehicle_Details vd
+      LEFT JOIN logs l ON vd.rfid = l.rfid
+      LEFT JOIN checkpoints c ON l.cpid = c.cpid
+      WHERE l.timestamp = (
+        SELECT MAX(timestamp) 
+        FROM logs l2 
+        WHERE l2.rfid = vd.rfid
+      )
+      ORDER BY l.timestamp DESC
+    `)
+
+    // ✅ Unique vehicle per lane (latest log per RFID)
+    const [laneStats] = await connection.execute(`
+      SELECT 
+        c.lane AS lane,
+        COUNT(DISTINCT l.rfid) AS vehicle_count
+      FROM (
+        SELECT rfid, MAX(timestamp) AS max_time
+        FROM logs
+        GROUP BY rfid
+      ) latest
+      JOIN logs l ON l.rfid = latest.rfid AND l.timestamp = latest.max_time
       JOIN checkpoints c ON l.cpid = c.cpid
       GROUP BY c.lane
     `)
 
-    const totalVehicles = laneData.reduce((sum: any, row: any) => sum + row.vehicle_count, 0)
-    const laneDistribution = laneData.map((row: any) => ({
-      lane: row.lane,
-      vehicleCount: row.vehicle_count,
-      percentage: totalVehicles > 0 ? Math.round((row.vehicle_count / totalVehicles) * 100) : 0,
-    }))
-
-    // Checkpoint-wise per-lane data
-    const [lanes] = await connection.execute(`SELECT DISTINCT lane FROM checkpoints ORDER BY lane`)
-    const checkpointData = []
-
-    for (let cp = 1; cp <= 10; cp++) {
-      const row: any = { checkpoint: `CP${cp}` }
-
-      for (const lane of lanes as any) {
-        const [count] = await connection.execute(
-          `
-          SELECT COUNT(DISTINCT l.rfid) AS vehicle_count
-          FROM logs l
-          JOIN checkpoints c ON l.cpid = c.cpid
-          WHERE c.lane = ? AND c.cpid LIKE ?
-        `,
-          [lane.lane, `${lane.lane}CP${cp}`],
-        )
-        row[lane.lane] = count[0]?.vehicle_count || 0
-      }
-
-      checkpointData.push(row)
-    }
-
-    // Category (Type_of_Veh) distribution
-    const [categoryData] = await connection.execute(`
-      SELECT Type_of_Veh, COUNT(*) AS count FROM vehicle_details GROUP BY Type_of_Veh
-    `)
-    const totalCategories = categoryData.reduce((sum: any, row: any) => sum + row.count, 0)
-    const categoryDistribution = categoryData.map((row: any) => ({
-      category: row.Type_of_Veh,
-      count: row.count,
-      percentage: totalCategories > 0 ? Math.round((row.count / totalCategories) * 100) : 0,
-    }))
-
-    // Latest 50 logs with details
-    const [recentLogs] = await connection.execute(`
-      SELECT l.rfid, l.cpid, l.timestamp, v.Type_of_Veh, v.BA_NO, v.Unit, c.lane
-      FROM logs l
-      JOIN vehicle_details v ON l.rfid = v.rfid
-      JOIN checkpoints c ON l.cpid = c.cpid
-      ORDER BY l.timestamp DESC
-      LIMIT 50
+    // ✅ Category distribution from Vehicle_Details
+    const [categoryStats] = await connection.execute(`
+      SELECT Type_of_Veh, COUNT(*) AS count
+      FROM Vehicle_Details
+      GROUP BY Type_of_Veh
     `)
 
     return NextResponse.json({
       success: true,
-      laneDistribution,
-      checkpointData,
-      categoryDistribution,
-      recentLogs,
       isPreview: false,
+      vehicles,
+      laneStats,
+      categoryStats,
     })
-  } catch (error: any) {
-    console.error("Error in analytics:", error)
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+  } catch (error) {
+    console.error("❌ Analytics API error:", error)
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch analytics", details: (error as Error).message },
+      { status: 500 }
+    )
   } finally {
     if (connection) await connection.end()
   }

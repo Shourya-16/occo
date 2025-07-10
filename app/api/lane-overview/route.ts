@@ -1,4 +1,5 @@
 // File: /app/api/lane-overview/route.ts
+
 import { NextResponse } from "next/server"
 import mysql from "mysql2/promise"
 
@@ -15,35 +16,48 @@ export async function GET() {
   try {
     connection = await mysql.createConnection(dbConfig)
 
-    // Get most recent position of each vehicle
+    // ✅ Get latest checkpoint per RFID per lane
     const [vehicles] = await connection.execute(`
-      SELECT l.rfid, l.cpid, l.timestamp, c.lane, vd.Type_of_Veh
+      SELECT 
+        l.rfid,
+        l.cpid,
+        l.timestamp,
+        c.lane,
+        vd.Type_of_Veh
       FROM logs l
-      JOIN (
-        SELECT rfid, MAX(timestamp) as max_time
-        FROM logs
-        GROUP BY rfid
-      ) latest ON l.rfid = latest.rfid AND l.timestamp = latest.max_time
       JOIN checkpoints c ON l.cpid = c.cpid
-      JOIN Vehicle_Details vd ON l.rfid = vd.rfid
+      JOIN vehicle_details vd ON l.rfid = vd.rfid
+      JOIN (
+        SELECT l.rfid, c.lane, MAX(l.timestamp) as max_time
+        FROM logs l
+        JOIN checkpoints c ON l.cpid = c.cpid
+        GROUP BY l.rfid, c.lane
+      ) latest_per_lane
+      ON l.rfid = latest_per_lane.rfid 
+         AND c.lane = latest_per_lane.lane 
+         AND l.timestamp = latest_per_lane.max_time
     `)
 
-    // Group by lane
-    const grouped = {}
-    for (const row of vehicles) {
+    // ✅ Group vehicles by lane
+    const grouped: Record<string, any[]> = {}
+
+    for (const row of vehicles as any[]) {
       const lane = row.lane
       if (!grouped[lane]) {
         grouped[lane] = []
       }
 
+      const checkpointNumber = parseInt((row.cpid.match(/CP(\d+)/) || [])[1] || "0")
+
       grouped[lane].push({
         id: row.rfid,
-        checkpoint: parseInt(row.cpid.replace(/[^\d]/g, "")), // extract number
+        checkpoint: checkpointNumber,
         category: row.Type_of_Veh,
-        speed: Math.floor(Math.random() * 20 + 40), // Optional: fake speed for visual
+        speed: Math.floor(Math.random() * 20 + 40), // Optional: Fake speed
       })
     }
 
+    // ✅ Format response
     const laneData = Object.entries(grouped).map(([lane, vehicles]) => ({
       id: lane,
       name: `Lane ${lane.replace("L", "")}`,
